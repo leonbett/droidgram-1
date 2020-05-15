@@ -51,14 +51,14 @@ object ExperimentMain {
                     exitProcess(0)
                 }
                 args.contains("extract") -> {
-                    val extractorArgs = args.filterNot { it.contains("extract") }.toTypedArray()
+                    val extractorArgs = args.filterNot { it.equals("extract") }.toTypedArray()
                     val grammar = GrammarExtractor.extract(extractorArgs, true)
                     Fuzzer(grammar, extractorArgs)
                         .apply { fuzzAllSeeds() }
                     exitProcess(0)
                 }
                 args.contains("merge") -> {
-                    val extractorArgs = args.filterNot { it.contains("merge") }.toTypedArray()
+                    val extractorArgs = args.filterNot { it.equals("merge") }.toTypedArray()
                     val grammar = GrammarExtractor.merge(extractorArgs, true)
                     Fuzzer(grammar, extractorArgs)
                         .apply { fuzzAllSeeds() }
@@ -105,6 +105,8 @@ object ExperimentMain {
                         "--Output-outputDir=$experimentDir")
 
                     log.info("Exploring input: $input (idx $seed)")
+
+                    log.info("TRANSLATIONTABLE: " + data.translationTable)
 
                     val experimentCfg = ExplorationAPI.config(experimentArgs, *extraCmdOptions())
                     GrammarExploration.exploreWithGrammarInput(experimentCfg, input, data.translationTable)

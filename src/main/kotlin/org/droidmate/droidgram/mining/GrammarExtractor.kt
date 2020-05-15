@@ -14,10 +14,7 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.lang.NumberFormatException
 import java.lang.StringBuilder
-import java.nio.file.FileVisitOption
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
+import java.nio.file.*
 import java.util.function.BiPredicate
 import kotlin.streams.toList
 
@@ -307,7 +304,7 @@ class GrammarExtractor(
             }
 
         val mappingFile = outputDir.resolve("translationTable$fileNameSuffix.txt")
-        Files.write(mappingFile, mapping.toString().toByteArray())
+        Files.write(mappingFile, mapping.toString().toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND)
 
         if (printToConsole) {
             println("Grammar:")

@@ -34,7 +34,7 @@ class GrammarReplayMF(
 ) : ModelFeature() {
     override val coroutineContext: CoroutineContext = CoroutineName("GrammarReplayMF") + Job()
 
-    private var currIndex: Int = -2
+    private var currIndex: Int = -1 // -2
     private lateinit var context: ExplorationContext<CustomModel, CustomState, CustomWidget>
 
     private val missedInputs = mutableListOf<GrammarInput>()
@@ -42,7 +42,8 @@ class GrammarReplayMF(
 
     private val inputList by lazy {
         val inputs = generatedInput
-            .split("ÿ") // also: " " does not work anyway, should be ""? ... was: " ", but problem for example with "United States" -> split            .filter { it.isNotEmpty() }
+            .split("ÿ") // was: " ", but problem for example with "United States" -> split
+            .filter { it.isNotEmpty() }
             .filter { it.contains("(") }
             .flatMap {
                 val actionInput =
@@ -92,6 +93,7 @@ class GrammarReplayMF(
     @JvmOverloads
     fun nextAction(state: CustomState, printLog: Boolean = false): ExplorationAction {
         currIndex++
+        log.info("nextAction: currIndex: $currIndex")
 
         val target = if (currIndex >= 0 && currIndex < inputList.size)
             inputList[currIndex]
@@ -102,12 +104,22 @@ class GrammarReplayMF(
         val targetWidget = state.actionableWidgets.firstOrNull { it.uid == targetUID }
         val currState = context.getCurrentState()
 
-        val action = when {
-            currIndex < 0 -> context.resetApp()
+        // log.info("all widgets in state: " + state.actionableWidgets)
+        // log.info("targetUID: " + targetUID)
 
-            currIndex >= inputList.size -> ExplorationAction.terminateApp()
+        val action = when {
+            currIndex < 0 -> {
+                log.info("resetApp()")
+                context.resetApp()
+            }
+
+            currIndex >= inputList.size -> {
+                log.info("terminateApp()")
+                ExplorationAction.terminateApp()
+            }
 
             target.isBack() -> {
+                log.info("isBack()")
                 reachedInputs.add(target)
                 ExplorationAction.pressBack()
             }
@@ -120,10 +132,14 @@ class GrammarReplayMF(
             }
 
             // Sequence of actions is Fetch -> Execute, if the widget is already here, skip the fetch
-            (targetWidget != null) && (targetWidget.isInteractive) && target.isFetch() -> nextAction(state, false)
+            (targetWidget != null) && (targetWidget.isInteractive) && target.isFetch() -> {
+                log.info("nextAction(state, false)")
+                nextAction(state, false)
+            }
 
             // Widget is on screen, interact with it
             (targetWidget != null) -> {
+                println("toAction!")
                 reachedInputs.add(target)
                 targetWidget.toAction()
             }

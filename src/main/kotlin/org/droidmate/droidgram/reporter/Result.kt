@@ -39,14 +39,21 @@ data class Result<T>(val originalInputs: List<T>, private val _reached: Set<T>, 
         res
     }
 
+    val new: Set<T> by lazy {
+        val res = _reached
+            .filter { !originalInputs.contains(it) }
+            .toSet()
+        res
+    }
+
     val coverage: Double by lazy {
-            val total = reached + missed
+        val total = reached + missed
 
-            if (missed.size > total.size) {
-                throw IllegalArgumentException("Missed more than total arguments. Missed: $missed Reached: $reached")
-            }
+        if (missed.size > total.size) {
+            throw IllegalArgumentException("Missed more than total arguments. Missed: $missed Reached: $reached")
+        }
 
-            1 - (missed.size.toDouble() / total.size)
+        1 - (missed.size.toDouble() / total.size)
     }
 
     fun save(outputFile: Path) {

@@ -82,9 +82,9 @@ object ResultBuilder {
 
         return if (coverages.isNotEmpty())
             coverages.reduce { acc, mutableSet ->
-            acc.addAll(mutableSet)
-            acc
-        } else {
+                acc.addAll(mutableSet)
+                acc
+            } else {
             emptySet()
         }
     }
@@ -103,6 +103,7 @@ object ResultBuilder {
     private fun calculateCodeCoverage(allStatements: Set<Long>, dir: Path): Result<Long> {
         val reached = getReachedStatements(dir)
         val missing = allStatements - reached
+
 
         val res = Result(allStatements.toList(), reached, missing)
 
@@ -151,11 +152,39 @@ object ResultBuilder {
         Files.write(inputSizeFile, sb.toString().toByteArray())
     }
 
+    // @Throws(IOException::class)
+    // val instrFile = Paths.get("/home/leon/HiWi/droidgram/gut/droidgram/apks/com.carlo_2.3.1.apk.json")
+    // readInstrumentationFile(instrFile)
+    fun readInstrumentationFile(instrumentationFile: Path?): Map<Long, String> {
+        val jsonData = String(Files.readAllBytes(instrumentationFile))
+        val jObj = JSONObject(jsonData)
+
+        val jMap = jObj.getJSONObject("allMethods")
+        val statements = mutableMapOf<Long, String>()
+
+        jMap.keys()
+            .asSequence()
+            .forEach { key ->
+                val keyId = key.toLong()
+                val value = jMap[key]
+                statements[keyId] = value.toString()
+            }
+
+        return statements
+    }
+
+
     fun generateSummary(inputs: List<List<String>>, allStatements: Set<Long>, dir: Path, seedNr: Int) {
         val sb = StringBuilder()
-        sb.appendln("Seed\tInput Size\tGrammarReached\tGrammarMissed\tGrammarCov\tCodeReached\tCodeMissed\tCodeCov")
+        // sb.appendln("Seed\tInput Size\tGrammarReached\tGrammarMissed\tGrammarCov\tCodeReached\tCodeMissed\tCodeCov\tNewCodeReached")
+        sb.appendln("Seed\tInput Size\tGrammarReached\tGrammarMissed\tGrammarCov\tCodeReached\tCodeMissed\tCodeCov\tNewCodeReached\tTotalCov")
 
+
+        // TODO: get all statements in program
         val allTerminals = inputs.flatten()
+        var totalCodeCoverageOfAllSeeds: Set<Long> = emptySet()
+        var totalNew: Set<Long> = emptySet()
+        // var totalReached: Set<Long> = emptySet()
 
         Files.list(dir)
             .filter { Files.isDirectory(it) }
@@ -169,12 +198,26 @@ object ResultBuilder {
                 val codeCoverage =
                     getCodeCoverage(allStatements, seedDir)
 
+                totalCodeCoverageOfAllSeeds = totalCodeCoverageOfAllSeeds + codeCoverage.reached // accumulate reached
+                totalNew = totalNew + codeCoverage.new
+
+                var debugIntersect = totalNew.intersect(totalCodeCoverageOfAllSeeds)
+                log.info("debugIntersect size: " + debugIntersect.size)
+
+
                 val index = seedDir.fileName.toString().removePrefix("seed").toInt()
                 val inputSize = if (seedNr >= 0) {
                     getInputSize(inputs[0])
                 } else {
                     getInputSize(inputs[index])
                 }
+
+                // val instrFile = Paths.get("/home/leon/HiWi/droidgram/gut/droidgram/apks/com.carlo_2.3.1.apk.json")
+                // val instrFile = Paths.get("/home/leon/HiWi/droidgram/gut/droidgram/apks/org.berlin_vegan.bvapp_26.apk.json")
+                // val instrFile = Paths.get("/home/leon/HiWi/droidgram/orig/fork/droidgram-1/apks/com.mirkoo.apps.mislibros_231_apps.evozi.com.apk.json")
+                val instrFile = Paths.get("/home/leon/HiWi/droidgram/orig/fork/droidgram-1/apks/com.ajaxmobiletech.pocketlibrary_16020002_apps.evozi.com.apk.json")
+                val totalSize = readInstrumentationFile(instrFile).size
+                val totalCodeCov = (codeCoverage.reached.size + codeCoverage.new.size) / totalSize.toDouble()
 
                 sb.append(index)
                     .append("\t")
@@ -191,8 +234,22 @@ object ResultBuilder {
                     .append(codeCoverage.missed.size)
                     .append("\t")
                     .append(codeCoverage.coverage)
+                    .append("\t")
+                    .append(codeCoverage.new.size)
+                    .append("\t")
+                    .append(totalCodeCov)
                     .appendln()
             }
+
+        sb.append("total # of unique covered statements of all seeds: " + totalCodeCoverageOfAllSeeds.size).appendln()
+
+        // accumulate: set of all NEW
+        // accumulate: set of all REACHED(known)
+        // calculate set diff: alle new, die nicht in reached sind. d.h. NEW - REACHED(known)
+        totalNew = totalNew - totalCodeCoverageOfAllSeeds
+        sb.append("# of new statements that were not covered during initial exploration: " + totalNew.size).appendln()
+
+
 
         val summaryFile = dir.resolve("summary.txt")
         Files.write(summaryFile, sb.toString().toByteArray())
@@ -201,10 +258,10 @@ object ResultBuilder {
     private fun calculateGrammarCoverage(inputs: List<String>, dir: Path): Result<String> {
         val allTerminals = inputs
             .flatMap {
-            it.split(" ")
-                .toList()
-                .filter { p -> p.isNotEmpty() }
-        }.toSet()
+                it.split(" ")
+                    .toList()
+                    .filter { p -> p.isNotEmpty() }
+            }.toSet()
 
         val reached = getReachedTerminals(dir)
         val missing = allTerminals - reached
